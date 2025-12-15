@@ -162,6 +162,8 @@ const deleteNote = async (req: Request, res: Response, next: NextFunction) => {
     if (result.count === 0) {
       throw new Error("Note not found or unauthorized!");
     }
+    const io = req.app.get("io");
+    io.emit("note-deleted", { id });
 
     res.status(200).json({
       success: true,
