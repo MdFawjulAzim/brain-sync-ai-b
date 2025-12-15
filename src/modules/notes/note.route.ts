@@ -30,4 +30,7 @@ router.patch(
 
 router.delete("/:id", auth(), NoteControllers.deleteNote);
 
+router.post("/:id/summary", auth(), NoteControllers.summarizeNote);
+
+
 export const NoteRoutes = router;

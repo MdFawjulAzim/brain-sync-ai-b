@@ -1,5 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/db";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { env } from "../../config/env";
 
 const createNote = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -165,10 +167,59 @@ const deleteNote = async (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
+const summarizeNote = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // return res.status(200).json({
+    //   success: true,
+    //   message: "AI Summary generated successfully!",
+    //   data: null,
+    // });
+    const user = req.user as any;
+    const { id } = req.params;
+
+    const note = await prisma.note.findFirst({
+      where: { id, userId: user.id },
+    });
+
+    if (!note) {
+      throw new Error("Note not found or unauthorized!");
+    }
+
+    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const prompt = `Summarize the following note in 3 short bullet points. content: ${note.content}`;
+
+    const aiResult = await model.generateContent(prompt);
+    const response = await aiResult.response;
+    const summaryText = response.text();
+
+    const updatedNote = await prisma.note.update({
+      where: { id },
+      data: {
+        aiSummary: summaryText,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "AI Summary generated successfully!",
+      data: updatedNote,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const NoteControllers = {
   createNote,
   getAllNotes,
   getSingleNote,
   updateNote,
   deleteNote,
+  summarizeNote,
 };

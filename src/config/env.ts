@@ -10,6 +10,7 @@ const envSchema = z.object({
     .enum(["development", "production", "test"])
     .default("development"),
   JWT_SECRET: z.string(),
+  GEMINI_API_KEY: z.string(),
 });
 
 const _env = envSchema.safeParse(process.env);
