@@ -63,3 +63,9 @@ Complete the Authentication system, implement the Notes CRUD module with relatio
 - **Prisma:** The `connectOrCreate` method is powerful for handling Many-to-Many relationships (like Tags) in a single query.
 - **Debugging:** When dealing with external APIs (like Google AI), creating small, standalone scripts (`.js`) to test connectivity is faster than debugging the entire Express app.
 - **Zod:** Using `z.coerce.number()` makes handling Query Parameters (which are strings by default) much easier for pagination.
+
+### 6. Socket.io Connection Error (404)
+
+- **Issue:** Postman failed to connect to `ws://localhost:5000` with a `404 Not Found` error.
+- **Root Cause:** The `package.json` dev script was running `src/index.ts` (which didn't have Socket logic), but the Socket.io configuration was in `src/server.ts`.
+- **Fix:** 1. Merged `src/index.ts` logic into `src/server.ts`. 2. Updated `package.json` script to run `src/server.ts`. 3. Deleted the redundant `src/index.ts` file.

@@ -28,6 +28,9 @@ const createNote = async (req: Request, res: Response, next: NextFunction) => {
       },
     });
 
+    const io = req.app.get("io");
+    io.emit("new-note", result);
+
     res.status(201).json({
       success: true,
       message: "Note created successfully!",
@@ -130,6 +133,9 @@ const updateNote = async (req: Request, res: Response, next: NextFunction) => {
       },
       include: { tags: true },
     });
+
+    const io = req.app.get("io");
+    io.emit("note-updated", result);
 
     res.status(200).json({
       success: true,
