@@ -13,5 +13,11 @@ router.post(
   validateRequest(NoteValidation.createNoteZodSchema),
   NoteControllers.createNote
 );
+router.get(
+  "/",
+  auth(),
+  validateRequest(NoteValidation.getNotesZodSchema),
+  NoteControllers.getAllNotes
+);
 
 export const NoteRoutes = router;

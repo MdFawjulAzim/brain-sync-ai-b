@@ -9,4 +9,10 @@ export const NoteValidation = {
       tags: z.array(z.string()).optional(),
     }),
   }),
+  getNotesZodSchema: z.object({
+    query: z.object({
+      page: z.coerce.number().min(1).default(1),
+      limit: z.coerce.number().min(1).max(100).default(10),
+    }),
+  }),
 };
