@@ -68,7 +68,107 @@ const getAllNotes = async (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
+const getSingleNote = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const user = req.user as any;
+    const { id } = req.params;
+    const result = await prisma.note.findFirst({
+      where: {
+        id: id,
+        userId: user.id,
+      },
+      include: { tags: true },
+    });
+
+    if (!result) {
+      throw new Error("Note not found or you are not authorized!");
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Note retrieved successfully!",
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateNote = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = req.user as any;
+    const { id } = req.params;
+    const { tags, ...updateData } = req.body;
+
+    const noteExists = await prisma.note.findFirst({
+      where: { id, userId: user.id },
+    });
+
+    if (!noteExists) {
+      throw new Error("Note not found or unauthorized!");
+    }
+
+    const result = await prisma.note.update({
+      where: { id },
+      data: {
+        ...updateData,
+        tags: tags
+          ? {
+              set: [],
+              connectOrCreate: tags.map((tag: string) => ({
+                where: { name: tag },
+                create: { name: tag },
+              })),
+            }
+          : undefined,
+      },
+      include: { tags: true },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Note updated successfully!",
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const deleteNote = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = req.user as any;
+    const { id } = req.params;
+
+    const result = await prisma.note.deleteMany({
+      where: {
+        id: id,
+        userId: user.id,
+      },
+    });
+
+    if (result.count === 0) {
+      throw new Error("Note not found or unauthorized!");
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Note deleted successfully!",
+      data: null,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const NoteControllers = {
   createNote,
   getAllNotes,
+  getSingleNote,
+  updateNote,
+  deleteNote,
 };

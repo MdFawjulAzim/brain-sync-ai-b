@@ -15,4 +15,12 @@ export const NoteValidation = {
       limit: z.coerce.number().min(1).max(100).default(10),
     }),
   }),
+  updateNoteZodSchema: z.object({
+    body: z.object({
+      title: z.string().optional(),
+      content: z.string().optional(),
+      isPinned: z.boolean().optional(),
+      tags: z.array(z.string()).optional(),
+    }),
+  }),
 };

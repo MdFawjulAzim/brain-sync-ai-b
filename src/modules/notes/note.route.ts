@@ -19,5 +19,15 @@ router.get(
   validateRequest(NoteValidation.getNotesZodSchema),
   NoteControllers.getAllNotes
 );
+router.get("/:id", auth(), NoteControllers.getSingleNote);
+
+router.patch(
+  "/:id",
+  auth(),
+  validateRequest(NoteValidation.updateNoteZodSchema),
+  NoteControllers.updateNote
+);
+
+router.delete("/:id", auth(), NoteControllers.deleteNote);
 
 export const NoteRoutes = router;
