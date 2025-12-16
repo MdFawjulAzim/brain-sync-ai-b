@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { prisma } from "../../config/db";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { env } from "../../config/env";
+import { chatModel, getEmbedding } from "../../utils/ai";
 
 const createNote = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -12,7 +13,6 @@ const createNote = async (req: Request, res: Response, next: NextFunction) => {
       data: {
         ...noteData,
         userId: user.id,
-
         tags:
           tags && tags.length > 0
             ? {
@@ -23,10 +23,23 @@ const createNote = async (req: Request, res: Response, next: NextFunction) => {
               }
             : undefined,
       },
-      include: {
-        tags: true,
-      },
+      include: { tags: true },
     });
+
+    try {
+      const textToEmbed = `Title: ${result.title}\nContent: ${result.content}`;
+      const embedding = await getEmbedding(textToEmbed);
+
+      const vectorString = `[${embedding.join(",")}]`;
+
+      await prisma.$executeRaw`
+        UPDATE "Note"
+        SET embedding = ${vectorString}::vector
+        WHERE id = ${result.id}
+      `;
+    } catch (aiError) {
+      console.error("Embedding generation failed:", aiError);
+    }
 
     const io = req.app.get("io");
     io.emit("new-note", result);
@@ -134,6 +147,22 @@ const updateNote = async (req: Request, res: Response, next: NextFunction) => {
       include: { tags: true },
     });
 
+    if (updateData.title || updateData.content) {
+      try {
+        const textToEmbed = `Title: ${result.title}\nContent: ${result.content}`;
+        const embedding = await getEmbedding(textToEmbed);
+        const vectorString = `[${embedding.join(",")}]`;
+
+        await prisma.$executeRaw`
+           UPDATE "Note"
+           SET embedding = ${vectorString}::vector
+           WHERE id = ${result.id}
+         `;
+      } catch (aiError) {
+        console.error("Embedding update failed:", aiError);
+      }
+    }
+
     const io = req.app.get("io");
     io.emit("note-updated", result);
 
@@ -197,12 +226,12 @@ const summarizeNote = async (
       throw new Error("Note not found or unauthorized!");
     }
 
-    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // Removed: const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+    // Removed: const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `Summarize the following note in 3 short bullet points. content: ${note.content}`;
 
-    const aiResult = await model.generateContent(prompt);
+    const aiResult = await chatModel.generateContent(prompt);
     const response = await aiResult.response;
     const summaryText = response.text();
 
@@ -212,6 +241,9 @@ const summarizeNote = async (
         aiSummary: summaryText,
       },
     });
+
+    const io = req.app.get("io");
+    io.emit("note-updated", updatedNote);
 
     res.status(200).json({
       success: true,

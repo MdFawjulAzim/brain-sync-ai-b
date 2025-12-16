@@ -1,9 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [vector]
 }
 
 model User {
@@ -17,13 +19,16 @@ model User {
 }
 
 model Note {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   title     String
-  content   String   @db.Text
-  isPinned  Boolean  @default(false)
-  aiSummary String?  @db.Text
+  content   String  @db.Text
+  isPinned  Boolean @default(false)
+  aiSummary String? @db.Text
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  embedding Unsupported("vector(768)")?
+
   tags      Tag[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

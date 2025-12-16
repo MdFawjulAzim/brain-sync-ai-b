@@ -1,3 +1,6 @@
+-- CreateExtension
+CREATE EXTENSION IF NOT EXISTS "vector";
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
@@ -18,6 +21,7 @@ CREATE TABLE "Note" (
     "isPinned" BOOLEAN NOT NULL DEFAULT false,
     "aiSummary" TEXT,
     "userId" TEXT NOT NULL,
+    "embedding" vector(768),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

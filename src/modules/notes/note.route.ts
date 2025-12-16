@@ -3,6 +3,7 @@ import auth from "../../middlewares/auth";
 import validateRequest from "../../middlewares/validateRequest";
 import { NoteControllers } from "./note.controller";
 import { NoteValidation } from "./note.validation";
+import { chatWithNotes } from "../ai/ai.controller";
 
 const router = express.Router();
 
@@ -32,5 +33,6 @@ router.delete("/:id", auth(), NoteControllers.deleteNote);
 
 router.post("/:id/summary", auth(), NoteControllers.summarizeNote);
 
+router.post("/chat", auth(), chatWithNotes);
 
 export const NoteRoutes = router;
