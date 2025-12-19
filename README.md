@@ -4,7 +4,7 @@
 
 **Project Name:** BrainSync AI  
 **Description:** A real-time, AI-powered knowledge base and "Second Brain" application.  
-**Tech Stack:** React (Vite), Node.js (Express), PostgreSQL, Prisma, Socket.io, Google Gemini AI.
+**Tech Stack:** React (Vite), Node.js (Express), PostgreSQL, Prisma, Socket.io, Google Gemini AI, OpenAI.
 
 ---
 
@@ -117,3 +117,63 @@ Implement **Retrieval Augmented Generation (RAG)** to allow users to "Chat with 
 - **Prisma & Vectors:** Prisma Client doesn't natively support writing to vector columns yet. We must use `$executeRaw` and cast the data strictly (e.g., `'[...values]'::vector`).
 - **Raw SQL Risks:** When using Raw SQL with Prisma, table names must match the _exact_ database table name (often PascalCase `"Note"`), not the Prisma model name or lowercase convention.
 - **Docker is Essential:** For specialized database extensions like `pgvector`, Docker provides the most consistent and hassle-free development environment compared to manual local installation.
+
+---
+
+## 📅 Date: December 19, 2025 (Phase 3: AI Quiz & Active Recall)
+
+### 🎯 Goal
+
+Implement an **Active Recall System** where users can generate quizzes from their notes using **OpenAI (GPT-3.5)**, take tests, and discuss their mistakes with an AI Tutor.
+
+### 🏗️ Tasks & Progress
+
+- [x] **OpenAI Integration:**
+  - Configured `openai` package with strict Type Safety in `env.ts`.
+  - Created `src/utils/openai.ts` to centralize configuration and export a reusable `GPT_MODEL` constant (DRY Principle).
+- [x] **Database Schema Update (Prisma):**
+
+  - Added `Quiz` model (stores score, total questions).
+  - Added `Question` model (stores options, correct answer, user's answer).
+  - Established One-to-Many relations between `User`, `Quiz`, and `Question`.
+
+- [x] **Quiz Logic Implementation:**
+
+  - **Generate Quiz:** Fetches note content -> Sends prompt to OpenAI with `response_format: { type: "json_object" }` -> Parses JSON -> Saves to DB.
+  - **Submit Answer:** server-side validation of answers to prevent cheating -> Updates Score and `isCorrect` status in DB.
+  - **Mistake Analysis Chat:** Feeds the full quiz context (User's wrong answers vs Correct answers) to AI -> Explains _why_ the user was wrong.
+
+- [x] **API Endpoints:**
+  - `POST /api/v1/quiz/generate` (Generate from specific note or latest notes)
+  - `POST /api/v1/quiz/submit` (Calculate score)
+  - `POST /api/v1/quiz/chat` (Tutor chat)
+
+### 🐛 Challenges & Fixes
+
+**11. OpenAI Response Parsing**
+
+- **Problem:** AI sometimes returns text before the JSON object, causing `JSON.parse` to fail.
+- **Fix:** Used OpenAI's **JSON Mode** (`response_format: { type: "json_object" }`) to ensure the output is always strictly valid JSON.
+
+**12. Hardcoded Model Names**
+
+- **Problem:** Changing from `gpt-3.5-turbo` to `gpt-4o` required changing code in multiple files.
+- **Fix:** Refactored code to export `GPT_MODEL` constant from `src/utils/openai.ts`. Now changing the model requires only one line update.
+
+**13. Environment Variable Validation**
+
+- **Problem:** App crashed at runtime if API Key was missing.
+- **Fix:** Updated `src/config/env.ts` using Zod to make `OPENAI_API_KEY` required (`z.string()`) instead of optional.
+
+---
+
+### 📊 Current Tech Stack (Updated)
+
+| Feature                   | Technology                             |
+| :------------------------ | :------------------------------------- |
+| **Core API**              | Express.js + TypeScript                |
+| **Database**              | PostgreSQL (Docker + pgvector)         |
+| **ORM**                   | Prisma v7                              |
+| **RAG / Chat with Notes** | **Google Gemini** (`gemini-1.5-flash`) |
+| **Quiz / Active Recall**  | **OpenAI** (`gpt-3.5-turbo`)           |
+| **Real-time**             | Socket.io                              |

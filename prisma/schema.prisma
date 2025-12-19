@@ -16,6 +16,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   notes     Note[]
+  quizzes   Quiz[]
 }
 
 model Note {
@@ -39,4 +40,29 @@ model Tag {
   name      String   @unique
   notes     Note[]
   createdAt DateTime @default(now())
+}
+
+model Quiz {
+  id     String @id @default(uuid())
+  title  String
+  score  Int?
+  total  Int
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  questions Question[]
+
+  createdAt DateTime @default(now())
+}
+
+model Question {
+  id            String   @id @default(uuid())
+  questionText  String
+  options       String[]
+  correctAnswer String
+  userAnswer    String?
+  isCorrect     Boolean?
+
+  quizId String
+  quiz   Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
 }
