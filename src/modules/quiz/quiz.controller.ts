@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../../config/db";
 import { GPT_MODEL, openai } from "../../utils/openai";
+import { chatModel } from "../../utils/ai";
 
 // 1. Generate Quiz
 export const generateQuiz = async (
@@ -18,7 +19,10 @@ export const generateQuiz = async (
     // If note ID is provided, use that note; otherwise, use the latest 3 notes
     if (noteId) {
       const note = await prisma.note.findUnique({ where: { id: noteId } });
-      if (!note) throw new Error("Note not found");
+      if (!note) {
+        res.status(404).json({ message: "Note not found" });
+        return;
+      }
       contentToQuiz = note.content;
     } else {
       const notes = await prisma.note.findMany({
@@ -29,9 +33,11 @@ export const generateQuiz = async (
       contentToQuiz = notes.map((n) => n.content).join("\n\n");
     }
 
-    if (!contentToQuiz) throw new Error("No content found to generate quiz.");
+    if (!contentToQuiz) {
+      res.status(400).json({ message: "No content found to generate quiz." });
+      return;
+    }
 
-    // Ask OpenAI to respond in JSON format
     const prompt = `
       Create a quiz with 5 multiple-choice questions based on the following content.
       Return the output strictly in this JSON format:
@@ -50,13 +56,36 @@ export const generateQuiz = async (
       ${contentToQuiz}
     `;
 
-    const completion = await openai.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: GPT_MODEL, // or "gpt-4o"
-      response_format: { type: "json_object" }, // JSON Mode (very important)
-    });
+    // Ask OpenAI to respond in JSON format, fallback to Gemini
+    let quizData;
+    try {
+      const completion = await openai.chat.completions.create({
+        messages: [{ role: "user", content: prompt }],
+        model: GPT_MODEL,
+        response_format: { type: "json_object" },
+      });
+      quizData = JSON.parse(completion.choices[0].message.content || "{}");
+    } catch (error) {
+      console.log("OpenAI failed, trying Gemini:", (error as Error).message);
+      try {
+        // Fallback to Gemini
+        const result = await chatModel.generateContent(
+          prompt +
+            "\n\nIMPORTANT: Respond ONLY with valid JSON. Do not use Markdown code blocks."
+        );
+        const response = await result.response;
+        let text = response.text();
 
-    const quizData = JSON.parse(completion.choices[0].message.content || "{}");
+        // 🟢 FIX: Remove Markdown code blocks (```json ... ```) before parsing
+        text = text.replace(/```json|```/g, "").trim();
+
+        console.log("Gemini response (Cleaned):", text); // Debug log
+        quizData = JSON.parse(text);
+      } catch (geminiError) {
+        console.log("Gemini also failed:", (geminiError as Error).message);
+        throw new Error("Both OpenAI and Gemini failed to generate quiz.");
+      }
+    }
 
     // Save to database
     const newQuiz = await prisma.quiz.create({
@@ -95,7 +124,10 @@ export const submitQuizAnswer = async (
       include: { questions: true },
     });
 
-    if (!quiz) throw new Error("Quiz not found");
+    if (!quiz) {
+      res.status(404).json({ message: "Quiz not found" });
+      return;
+    }
 
     let score = 0;
 
@@ -140,7 +172,10 @@ export const chatAboutQuiz = async (
       include: { questions: true },
     });
 
-    if (!quiz) throw new Error("Quiz not found");
+    if (!quiz) {
+      res.status(404).json({ message: "Quiz not found" });
+      return;
+    }
 
     // Create context for AI
     const quizContext = quiz.questions
@@ -155,21 +190,37 @@ export const chatAboutQuiz = async (
       .join("\n");
 
     const prompt = `
-      You are a tutor. The user has just taken a quiz. 
+      You are a friendly AI tutor. The user has just taken a quiz. 
       Here is the quiz context and results:
       ${quizContext}
 
       User Question: ${question}
       
-      Answer the user kindly and explain their mistakes if any.
+      Answer the user kindly and explain their mistakes if any. Keep it concise.
     `;
 
-    const completion = await openai.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: GPT_MODEL,
-    });
+    let answer;
+    try {
+      const completion = await openai.chat.completions.create({
+        messages: [{ role: "user", content: prompt }],
+        model: GPT_MODEL,
+      });
+      answer = completion.choices[0].message.content;
+    } catch (error) {
+      console.log("OpenAI failed, trying Gemini:", (error as Error).message);
+      try {
+        const result = await chatModel.generateContent(prompt);
+        const response = await result.response;
+        answer = response.text();
+      } catch (geminiError) {
+        console.log("Gemini also failed:", (geminiError as Error).message);
+        throw new Error(
+          "Both OpenAI and Gemini failed to answer the question."
+        );
+      }
+    }
 
-    res.json({ success: true, answer: completion.choices[0].message.content });
+    res.json({ success: true, answer });
   } catch (error) {
     next(error);
   }

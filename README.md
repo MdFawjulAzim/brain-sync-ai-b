@@ -112,25 +112,19 @@ Implement **Retrieval Augmented Generation (RAG)** to allow users to "Chat with 
 - **Root Cause:** We attempted to use `gemini-2.5-pro` (which is either restricted or non-existent for the free tier).
 - **Fix:** Switched the Chat Model to **`gemini-1.5-flash`**, which offers a generous free tier (15 RPM) and faster response times suitable for real-time chat.
 
-### 💡 Key Learnings (RAG Specific)
-
-- **Prisma & Vectors:** Prisma Client doesn't natively support writing to vector columns yet. We must use `$executeRaw` and cast the data strictly (e.g., `'[...values]'::vector`).
-- **Raw SQL Risks:** When using Raw SQL with Prisma, table names must match the _exact_ database table name (often PascalCase `"Note"`), not the Prisma model name or lowercase convention.
-- **Docker is Essential:** For specialized database extensions like `pgvector`, Docker provides the most consistent and hassle-free development environment compared to manual local installation.
-
 ---
 
 ## 📅 Date: December 19, 2025 (Phase 3: AI Quiz & Active Recall)
 
 ### 🎯 Goal
 
-Implement an **Active Recall System** where users can generate quizzes from their notes using **OpenAI (GPT-3.5)**, take tests, and discuss their mistakes with an AI Tutor.
+Implement an **Active Recall System** where users can generate quizzes from their notes using **OpenAI (GPT-3.5)** with a **Gemini Fallback**, take tests, and discuss their mistakes with an AI Tutor.
 
 ### 🏗️ Tasks & Progress
 
-- [x] **OpenAI Integration:**
+- [x] **OpenAI Integration (with Fallback):**
   - Configured `openai` package with strict Type Safety in `env.ts`.
-  - Created `src/utils/openai.ts` to centralize configuration and export a reusable `GPT_MODEL` constant (DRY Principle).
+  - Implemented a **Gemini Fallback System**: If OpenAI fails (e.g., billing quota exceeded), the system automatically switches to Google Gemini to ensure uninterrupted service.
 - [x] **Database Schema Update (Prisma):**
 
   - Added `Quiz` model (stores score, total questions).
@@ -139,8 +133,8 @@ Implement an **Active Recall System** where users can generate quizzes from thei
 
 - [x] **Quiz Logic Implementation:**
 
-  - **Generate Quiz:** Fetches note content -> Sends prompt to OpenAI with `response_format: { type: "json_object" }` -> Parses JSON -> Saves to DB.
-  - **Submit Answer:** server-side validation of answers to prevent cheating -> Updates Score and `isCorrect` status in DB.
+  - **Generate Quiz:** Fetches note content -> Sends prompt to OpenAI (or Gemini) -> Parses JSON -> Saves to DB.
+  - **Submit Answer:** Server-side validation of answers to prevent cheating -> Updates Score and `isCorrect` status in DB.
   - **Mistake Analysis Chat:** Feeds the full quiz context (User's wrong answers vs Correct answers) to AI -> Explains _why_ the user was wrong.
 
 - [x] **API Endpoints:**
@@ -148,7 +142,7 @@ Implement an **Active Recall System** where users can generate quizzes from thei
   - `POST /api/v1/quiz/submit` (Calculate score)
   - `POST /api/v1/quiz/chat` (Tutor chat)
 
-### 🐛 Challenges & Fixes
+### 🐛 Challenges & Fixes (Backend)
 
 **11. OpenAI Response Parsing**
 
@@ -165,15 +159,21 @@ Implement an **Active Recall System** where users can generate quizzes from thei
 - **Problem:** App crashed at runtime if API Key was missing.
 - **Fix:** Updated `src/config/env.ts` using Zod to make `OPENAI_API_KEY` required (`z.string()`) instead of optional.
 
+**14. Gemini JSON Parsing Error (Markdown Backticks)**
+
+- **Problem:** When switching to the Gemini fallback (due to OpenAI rate limits), `JSON.parse` failed.
+- **Root Cause:** Gemini tries to be helpful by wrapping the JSON output in Markdown code blocks (e.g., `json { ... } `), which is invalid for direct parsing.
+- **Fix:** Implemented a regex cleaner ` .replace(/```json|```/g, "").trim() ` to strip Markdown formatting before parsing the JSON string.
+
 ---
 
 ### 📊 Current Tech Stack (Updated)
 
-| Feature                   | Technology                             |
-| :------------------------ | :------------------------------------- |
-| **Core API**              | Express.js + TypeScript                |
-| **Database**              | PostgreSQL (Docker + pgvector)         |
-| **ORM**                   | Prisma v7                              |
-| **RAG / Chat with Notes** | **Google Gemini** (`gemini-1.5-flash`) |
-| **Quiz / Active Recall**  | **OpenAI** (`gpt-3.5-turbo`)           |
-| **Real-time**             | Socket.io                              |
+| Feature                   | Technology                                         |
+| :------------------------ | :------------------------------------------------- |
+| **Core API**              | Express.js + TypeScript                            |
+| **Database**              | PostgreSQL (Docker + pgvector)                     |
+| **ORM**                   | Prisma v7                                          |
+| **RAG / Chat with Notes** | **Google Gemini** (`gemini-1.5-flash`)             |
+| **Quiz / Active Recall**  | **OpenAI** (`gpt-3.5-turbo`) + **Gemini Fallback** |
+| **Real-time**             | Socket.io                                          |
